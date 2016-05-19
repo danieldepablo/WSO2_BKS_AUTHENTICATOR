@@ -32,6 +32,7 @@ import org.wso2.carbon.core.services.util.CarbonAuthenticationUtil;
 import org.wso2.carbon.core.util.KeyStoreManager;
 import org.wso2.carbon.user.api.TenantManager;
 import org.wso2.carbon.user.api.UserStoreManager;
+import org.wso2.carbon.user.core.ldap.ReadWriteLDAPUserStoreManager;
 import org.wso2.carbon.utils.AuthenticationObserver;
 import org.wso2.carbon.utils.multitenancy.MultitenantUtils;
 
@@ -43,7 +44,7 @@ import java.security.interfaces.RSAPublicKey;
  * BKSAuthenticator.
  */
 public class BKSAuthenticator implements CarbonServerAuthenticator {
-    private static final int DEFAULT_PRIORITY_LEVEL = 1;
+    private static int DEFAULT_PRIORITY_LEVEL = 50;
     private static final String AUTHENTICATOR_NAME = "BKSAuthenticator";
     private static final Log log = LogFactory.getLog(BKSAuthenticator.class);
 
@@ -101,7 +102,7 @@ public class BKSAuthenticator implements CarbonServerAuthenticator {
         try {
             String publicKeyAlias = token.getEmitter() + "_" + token.getSignatureMethod();
             Signature verifier = Signature.getInstance(token.getSignatureMethod());
-            verifier.initVerify((RSAPublicKey) keyStoreManager.getDefaultPublicKey());
+            verifier.initVerify((RSAPublicKey) keyStoreManager.getPrimaryKeyStore().getCertificate(publicKeyAlias+".cer").getPublicKey());
             verifier.update(token.getOriginalDataWithoutSignature().getBytes());
 
             if (!verifier.verify(Base64Utils.decode(token.getSignature()))){
@@ -128,8 +129,8 @@ public class BKSAuthenticator implements CarbonServerAuthenticator {
 
             handleAuthenticationStarted(tenantId);
         
-            UserStoreManager userStore = BKSAuthenticatorServiceComponent
-                    .getRealmService().getTenantUserRealm(tenantId).getUserStoreManager();
+            UserStoreManager userStore = ((ReadWriteLDAPUserStoreManager)BKSAuthenticatorServiceComponent
+                    .getRealmService().getTenantUserRealm(tenantId).getUserStoreManager()).getSecondaryUserStoreManager();
             if (userStore.isExistingUser(userName)) {
                 isAuthenticated = true;
             }
